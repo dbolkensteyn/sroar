@@ -71,6 +71,22 @@ func FromBufferWithCopy(data []byte) *Bitmap {
 	}
 }
 
+func FromBufferOrdered(data []byte) *Bitmap {
+	if len(data) < 8 {
+		return NewOrderedSroar()
+	}
+	dup := make([]byte, len(data))
+	copy(dup, data)
+	du := toUint16Slice(dup)
+	x := toUint64Slice(du[:4])[0]
+	return &Bitmap{
+		data:      du,
+		list:      toUint64Slice(du[:x]),
+		isOrdered: true,
+	}
+
+}
+
 func (ra *Bitmap) ToBuffer() []byte {
 	return toByteSlice(ra.data)
 }
@@ -371,10 +387,13 @@ func (ra *Bitmap) SetOrdered(x uint64) {
 
 	if uint64(len(ra.list)) <= offset {
 		ra.fastExpand(4)
-		ra.list = toUint64Slice(ra.data)
+		ra.list = toUint64Slice(ra.data)[:offset+1]
 	}
 	ra.list[offset] = x
 	ra.list[indexNumKeys]++
+
+	// size is in terms of number of u16s
+	ra.list[indexNodeSize] = 4 * uint64(len(ra.list))
 }
 
 func (ra *Bitmap) SetManyOrdered(x []uint64) {
