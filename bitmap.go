@@ -48,11 +48,20 @@ func FromBuffer(data []byte) *Bitmap {
 		return NewBitmap()
 	}
 	du := toUint16Slice(data)
-	x := toUint64Slice(du[:4])[0]
-	return &Bitmap{
+	header := toUint64Slice(du[:16])
+	sz := header[indexNodeSize]
+	isOrdered := header[indexMeta] == 1
+
+	ra := &Bitmap{
 		data: du,
-		keys: toUint64Slice(du[:x]),
 	}
+	if isOrdered {
+		ra.list = toUint64Slice(du[:sz])
+		ra.isOrdered = true
+	} else {
+		ra.keys = toUint64Slice(du[:sz])
+	}
+	return ra
 }
 
 // FromBufferWithCopy creates a copy of the given buffer and returns a bitmap based on the copied
@@ -64,30 +73,27 @@ func FromBufferWithCopy(data []byte) *Bitmap {
 	dup := make([]byte, len(data))
 	copy(dup, data)
 	du := toUint16Slice(dup)
-	x := toUint64Slice(du[:4])[0]
-	return &Bitmap{
+	header := toUint64Slice(du[:16])
+	sz := header[indexNodeSize]
+	isOrdered := header[indexMeta] == 1
+
+	ra := &Bitmap{
 		data: du,
-		keys: toUint64Slice(du[:x]),
 	}
-}
-
-func FromBufferOrdered(data []byte) *Bitmap {
-	if len(data) < 8 {
-		return NewOrderedSroar()
+	if isOrdered {
+		ra.list = toUint64Slice(du[:sz])
+		ra.isOrdered = true
+	} else {
+		ra.keys = toUint64Slice(du[:sz])
 	}
-	dup := make([]byte, len(data))
-	copy(dup, data)
-	du := toUint16Slice(dup)
-	x := toUint64Slice(du[:4])[0]
-	return &Bitmap{
-		data:      du,
-		list:      toUint64Slice(du[:x]),
-		isOrdered: true,
-	}
-
+	return ra
 }
 
 func (ra *Bitmap) ToBuffer() []byte {
+	if ra.isOrdered {
+		// 1 means ordered sroar.
+		ra.list[indexMeta] = 1
+	}
 	return toByteSlice(ra.data)
 }
 
@@ -101,9 +107,8 @@ func NewBitmapWith(numKeys int) *Bitmap {
 	}
 	ra := &Bitmap{
 		// Each key must also keep an offset. So, we need to double the number
-		// of uint64s allocated. Plus, we need to make space for the first 2
-		// uint64s to store the number of keys.
-		data: make([]uint16, 4*(2*numKeys+2)),
+		// of uint64s allocated. Plus, we need to make space for the header.
+		data: make([]uint16, 4*(2*numKeys+indexNodeStart)),
 	}
 	ra.keys = toUint64Slice(ra.data)
 	ra.keys.setAt(indexNodeSize, uint64(len(ra.data)))
@@ -120,7 +125,7 @@ func NewBitmapWith(numKeys int) *Bitmap {
 
 func NewOrderedSroar() *Bitmap {
 	ra := &Bitmap{
-		data:      make([]uint16, 2*4),
+		data:      make([]uint16, indexNodeStart*4),
 		isOrdered: true,
 	}
 	ra.list = toUint64Slice(ra.data)

@@ -603,7 +603,6 @@ func TestOrderedSroar(t *testing.T) {
 	require.Equal(t, arr, a.ToOrderedArray())
 
 	buf := a.ToBuffer()
-	b := FromBufferOrdered(buf)
+	b := FromBuffer(buf)
 	require.Equal(t, arr, b.ToOrderedArray())
-
 }

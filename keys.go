@@ -6,9 +6,13 @@ import (
 )
 
 var (
-	indexNodeSize  = 0
-	indexNumKeys   = 1
-	indexNodeStart = 2
+	indexNodeSize = 0
+	indexNumKeys  = 1
+	// We can later use 64 bits of meta to represent various meta information. For now, 1 means
+	// it is ordered sroar.
+	indexMeta      = 2
+	indexUnused    = 3
+	indexNodeStart = 4
 )
 
 // node stores uint64 keys and the corresponding container offset in the buffer.
