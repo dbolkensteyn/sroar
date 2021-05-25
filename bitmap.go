@@ -36,6 +36,9 @@ type Bitmap struct {
 	// memMoved keeps track of how many uint16 moves we had to do. The smaller
 	// this number, the more efficient we have been.
 	memMoved int
+
+	isOrdered bool
+	list      []uint64
 }
 
 // FromBuffer returns a pointer to bitmap corresponding to the given buffer. This bitmap shouldn't
@@ -99,6 +102,16 @@ func NewBitmapWith(numKeys int) *Bitmap {
 	return ra
 }
 
+func NewOrderedSroar() *Bitmap {
+	ra := &Bitmap{
+		data:      make([]uint16, 2*4),
+		isOrdered: true,
+	}
+	ra.list = toUint64Slice(ra.data)
+	ra.list[0] = uint64(len(ra.data))
+	return ra
+}
+
 // setKey sets a key and container offset.
 func (ra *Bitmap) setKey(k uint64, offset uint64) uint64 {
 	if added := ra.keys.set(k, offset); !added {
@@ -153,7 +166,9 @@ func (ra *Bitmap) fastExpand(bySize uint16) {
 	copy(out, ra.data)
 	ra.data = out[:toSize]
 	// Re-reference ra.keys correctly because underlying array has changed.
-	ra.keys = toUint64Slice(ra.data[:prev])
+	if !ra.isOrdered {
+		ra.keys = toUint64Slice(ra.data[:prev])
+	}
 }
 
 // scootRight isn't aware of containers. It's going to create empty space of
@@ -349,6 +364,27 @@ func (ra *Bitmap) SetMany(x []uint64) {
 	for _, k := range x {
 		ra.Set(k)
 	}
+}
+
+func (ra *Bitmap) SetOrdered(x uint64) {
+	offset := uint64(indexNodeStart) + ra.list[indexNumKeys]
+
+	if uint64(len(ra.list)) <= offset {
+		ra.fastExpand(4)
+		ra.list = toUint64Slice(ra.data)
+	}
+	ra.list[offset] = x
+	ra.list[indexNumKeys]++
+}
+
+func (ra *Bitmap) SetManyOrdered(x []uint64) {
+	for _, k := range x {
+		ra.SetOrdered(k)
+	}
+}
+
+func (ra *Bitmap) ToOrderedArray() []uint64 {
+	return ra.list[indexNodeStart:]
 }
 
 // Select returns the element at the xth index. (0-indexed)

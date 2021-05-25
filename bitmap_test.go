@@ -588,3 +588,17 @@ func TestContainerFull(t *testing.T) {
 	setCardinality(b, b.cardinality())
 	require.Equal(t, maxCardinality, getCardinality(b))
 }
+
+func TestOrderedSroar(t *testing.T) {
+	a := NewOrderedSroar()
+	n := int(1e5)
+
+	var arr []uint64
+	for i := 0; i < n; i++ {
+		r := uint64(rand.Int63n(math.MaxInt64))
+		arr = append(arr, r)
+		a.SetOrdered(r)
+	}
+
+	require.Equal(t, arr, a.ToOrderedArray())
+}
