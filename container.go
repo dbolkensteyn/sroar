@@ -87,6 +87,15 @@ func calculateAndSetCardinality(data []uint16) {
 	setCardinality(b, card)
 }
 
+func zeroOutContainer(c []uint16) {
+	switch c[indexType] {
+	case typeArray:
+		array(c).zeroOut()
+	case typeBitmap:
+		bitmap(c).zeroOut()
+	}
+}
+
 type array []uint16
 
 // find returns the index of the first element >= x.
@@ -183,6 +192,10 @@ func (c array) removeRange(lo, hi uint16) {
 	}
 	copy(c[st+loIdx:], c[st+hiIdx:])
 	setCardinality(c, N-hiIdx+loIdx)
+}
+
+func (c array) zeroOut() {
+	setCardinality(c, 0)
 }
 
 // TODO: Figure out how memory allocation would work in these situations. Perhaps use allocator here?
@@ -412,6 +425,11 @@ func (b bitmap) removeRange(lo, hi uint16) {
 		b[startIdx+hiIdx] &= ^bitmapMask[p]
 	}
 	setCardinality(b, N-removed)
+}
+
+func (b bitmap) zeroOut() {
+	setCardinality(b, 0)
+	b[indexType] = typeArray
 }
 
 func (b bitmap) has(x uint16) bool {

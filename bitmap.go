@@ -458,45 +458,45 @@ func (ra *Bitmap) RemoveRange(lo, hi uint64) {
 			break
 		}
 		// TODO(Ahsan): We should probably scootLeft or zero out the container.
-		if _, has := ra.keys.getValue(key); has {
-			off := ra.newContainer(minContainerSize)
-			ra.setKey(key, off)
+		if off, has := ra.keys.getValue(key); has {
+			c := ra.getContainer(off)
+			zeroOutContainer(c)
 		}
 	}
 
 	// Remove elements >= lo in k1's container
 	off, has := ra.keys.getValue(k1)
 	if has {
-		if uint16(lo) == 0 {
-			off := ra.newContainer(minContainerSize)
-			ra.setKey(k1, off)
-		}
 		c := ra.getContainer(off)
-		switch c[indexType] {
-		case typeArray:
-			p := array(c)
-			p.removeRange(uint16(lo), math.MaxUint16)
-		case typeBitmap:
-			b := bitmap(c)
-			b.removeRange(uint16(lo), math.MaxUint16)
+		if uint16(lo) == 0 {
+			zeroOutContainer(c)
+		} else {
+			switch c[indexType] {
+			case typeArray:
+				p := array(c)
+				p.removeRange(uint16(lo), math.MaxUint16)
+			case typeBitmap:
+				b := bitmap(c)
+				b.removeRange(uint16(lo), math.MaxUint16)
+			}
 		}
 	}
 
 	// Remove all elements < hi in k2's container
 	off, has = ra.keys.getValue(k2)
 	if has {
-		if uint16(hi) == math.MaxUint16 {
-			off := ra.newContainer(minContainerSize)
-			ra.setKey(k2, off)
-		}
 		c := ra.getContainer(off)
-		switch c[indexType] {
-		case typeArray:
-			p := array(c)
-			p.removeRange(0, uint16(hi)-1)
-		case typeBitmap:
-			b := bitmap(c)
-			b.removeRange(0, uint16(hi)-1)
+		if uint16(hi) == math.MaxUint16 {
+			zeroOutContainer(c)
+		} else {
+			switch c[indexType] {
+			case typeArray:
+				p := array(c)
+				p.removeRange(0, uint16(hi)-1)
+			case typeBitmap:
+				b := bitmap(c)
+				b.removeRange(0, uint16(hi)-1)
+			}
 		}
 	}
 }
@@ -652,16 +652,18 @@ func (ra *Bitmap) And(bm *Bitmap) {
 			bi++
 		} else if ak < bk {
 			// need to remove the container of a
-			off := a.newContainer(minContainerSize)
-			a.setKey(ak, off)
+			off := a.keys.val(ai)
+			c := a.getContainer(off)
+			zeroOutContainer(c)
 			ai++
 		} else {
 			bi++
 		}
 	}
 	for ai < an {
-		off := a.newContainer(minContainerSize)
-		a.setKey(a.keys.key(ai), off)
+		off := a.keys.val(ai)
+		c := a.getContainer(off)
+		zeroOutContainer(c)
 		ai++
 	}
 }
